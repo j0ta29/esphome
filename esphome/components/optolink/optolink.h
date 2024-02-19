@@ -13,8 +13,8 @@ class Optolink : public esphome::Component, public Print {
   std::string state_ = "OK";
   std::string log_buffer_;
   bool logger_enabled_ = false;
-  int rx_pin_;
-  int tx_pin_;
+  int rx_pin_ = 3;
+  int tx_pin_ = 1;
 
   void comm_();
 

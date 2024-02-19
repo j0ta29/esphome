@@ -34,6 +34,7 @@ void Optolink::setup() {
 #if defined(USE_ESP32)
   VitoWiFi.setup(&Serial, rx_pin_, tx_pin_);
 #elif defined(USE_ESP8266)
+  Serial.pins(tx_pin_, rx_pin_);
   VitoWiFi.setup(&Serial);
 #endif
 }

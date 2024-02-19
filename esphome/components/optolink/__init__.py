@@ -54,11 +54,9 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(OptolinkComponent),
             cv.Required(CONF_PROTOCOL): cv.one_of("P300", "KW"),
             cv.Optional(CONF_RX_PIN): cv.All(
-                cv.only_on_esp32,
                 pins.internal_gpio_input_pin_schema,
             ),
             cv.Optional(CONF_TX_PIN): cv.All(
-                cv.only_on_esp32,
                 pins.internal_gpio_output_pin_schema,
             ),
             cv.Optional(CONF_LOGGER, default=False): cv.boolean,
@@ -83,6 +81,10 @@ async def to_code(config):
 
     if CORE.is_esp32:
         cg.add(var.set_rx_pin(config[CONF_RX_PIN]["number"]))
+        cg.add(var.set_tx_pin(config[CONF_TX_PIN]["number"]))
+    if CORE.is_esp8266 and CONF_RX_PIN in config:
+        cg.add(var.set_rx_pin(config[CONF_RX_PIN]["number"]))
+    if CORE.is_esp8266 and CONF_TX_PIN in config:
         cg.add(var.set_tx_pin(config[CONF_TX_PIN]["number"]))
 
     await cg.register_component(var, config)
