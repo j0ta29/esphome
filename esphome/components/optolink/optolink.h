@@ -3,6 +3,7 @@
 #ifdef USE_ARDUINO
 
 #include "esphome/core/component.h"
+#include "esphome/components/sensor/sensor.h"
 #include "VitoWiFi.h"
 
 namespace esphome {
@@ -15,6 +16,7 @@ class Optolink : public esphome::Component, public Print {
   bool logger_enabled_ = false;
   int rx_pin_;
   int tx_pin_;
+  sensor::Sensor *queue_size;
 
   void comm_();
 

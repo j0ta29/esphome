@@ -2,6 +2,7 @@
 
 #include "esphome/core/defines.h"
 #include "esphome/core/log.h"
+#include "esphome/core/application.h"
 #include "optolink.h"
 
 VitoWiFiClass<USE_OPTOLINK_VITOWIFI_PROTOCOL> VitoWiFi;  // NOLINT
@@ -30,12 +31,21 @@ void Optolink::setup() {
 #elif defined(USE_ESP8266)
   VitoWiFi.setup(&Serial);
 #endif
+
+  queue_size = new sensor::Sensor();
+  queue_size->set_icon("mdi:queue-first-in-last-out");
+  queue_size->set_entity_category(esphome::ENTITY_CATEGORY_DIAGNOSTIC);
+  queue_size->set_name("Optolink queue size");
+  App.register_sensor(queue_size);
+  set_interval(1000, [this]() {
+    float current_queue_size = VitoWiFi.queueSize();
+    if (current_queue_size != queue_size->state) {
+      queue_size->publish_state(current_queue_size);
+    }
+  });
 }
 
-void Optolink::loop() {
-  // ESP_LOGD(TAG, "queue size: %d", VitoWiFi.queueSize());
-  VitoWiFi.loop();
-}
+void Optolink::loop() { VitoWiFi.loop(); }
 
 void Optolink::set_state(const char *format, ...) {
   va_list args;

@@ -14,7 +14,7 @@ from esphome.const import (
 from esphome.core import CORE
 
 CODEOWNERS = ["@j0ta29"]
-DEPENDENCIES = []
+DEPENDENCIES = ["sensor"]
 AUTO_LOAD = []
 MULTI_CONF = False
 
