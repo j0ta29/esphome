@@ -16,7 +16,6 @@ class Optolink : public esphome::Component, public Print {
   bool logger_enabled_ = false;
   int rx_pin_;
   int tx_pin_;
-  sensor::Sensor *queue_size;
 
   void comm_();
 
@@ -36,6 +35,8 @@ class Optolink : public esphome::Component, public Print {
 
   void set_state(const char *format, ...);
   std::string get_state() { return state_; }
+
+  int get_queue_size();
 };
 
 }  // namespace optolink
