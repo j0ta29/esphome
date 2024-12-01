@@ -85,6 +85,7 @@ esphome/components/bmp581/* @kahrendt
 esphome/components/bp1658cj/* @Cossid
 esphome/components/bp5758d/* @Cossid
 esphome/components/button/* @esphome/core
+esphome/components/bytebuffer/* @clydebarrow
 esphome/components/canbus/* @danielschramm @mvturnho
 esphome/components/cap1188/* @mreditor97
 esphome/components/captive_portal/* @OttoWinter
@@ -130,6 +131,7 @@ esphome/components/ens160_base/* @latonita @vincentscode
 esphome/components/ens160_i2c/* @latonita
 esphome/components/ens160_spi/* @latonita
 esphome/components/ens210/* @itn3rd77
+esphome/components/es8311/* @kahrendt @kroimon
 esphome/components/esp32/* @esphome/core
 esphome/components/esp32_ble/* @Rapsssito @jesserockz
 esphome/components/esp32_ble_client/* @jesserockz
@@ -360,6 +362,7 @@ esphome/components/sdl/* @clydebarrow
 esphome/components/sdm_meter/* @jesserockz @polyfaces
 esphome/components/sdp3x/* @Azimath
 esphome/components/seeed_mr24hpc1/* @limengdu
+esphome/components/seeed_mr60fda2/* @limengdu
 esphome/components/selec_meter/* @sourabhjaiswal
 esphome/components/select/* @esphome/core
 esphome/components/sen0321/* @notjj
@@ -414,6 +417,7 @@ esphome/components/substitutions/* @esphome/core
 esphome/components/sun/* @OttoWinter
 esphome/components/sun_gtil2/* @Mat931
 esphome/components/switch/* @esphome/core
+esphome/components/switch/binary_sensor/* @ssieb
 esphome/components/t6615/* @tylermenezes
 esphome/components/tc74/* @sethgirvan
 esphome/components/tca9548a/* @andreashergert1984

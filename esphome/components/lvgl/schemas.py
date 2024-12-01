@@ -341,6 +341,7 @@ FLEX_OBJ_SCHEMA = {
     cv.Optional(df.CONF_FLEX_GROW): cv.int_,
 }
 
+
 DISP_BG_SCHEMA = cv.Schema(
     {
         cv.Optional(df.CONF_DISP_BG_IMAGE): lv_image,
@@ -391,7 +392,9 @@ def container_validator(schema, widget_type: WidgetType):
             add_lv_use(ltype)
         if value == SCHEMA_EXTRACT:
             return result
-        result = result.extend(LAYOUT_SCHEMAS[ltype.lower()])
+        result = result.extend(
+            LAYOUT_SCHEMAS.get(ltype.lower(), LAYOUT_SCHEMAS[df.TYPE_NONE])
+        )
         return result(value)
 
     return validator

@@ -7,6 +7,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <limits>
 
 #include "esphome/core/optional.h"
 
@@ -419,6 +420,14 @@ template<typename T, enable_if_t<std::is_unsigned<T>::value, int> = 0> std::stri
   return format_hex_pretty(reinterpret_cast<uint8_t *>(&val), sizeof(T));
 }
 
+/// Format the byte array \p data of length \p len in binary.
+std::string format_bin(const uint8_t *data, size_t length);
+/// Format an unsigned integer in binary, starting with the most significant byte.
+template<typename T, enable_if_t<std::is_unsigned<T>::value, int> = 0> std::string format_bin(T val) {
+  val = convert_big_endian(val);
+  return format_bin(reinterpret_cast<uint8_t *>(&val), sizeof(T));
+}
+
 /// Return values for parse_on_off().
 enum ParseOnOffState {
   PARSE_NONE = 0,
@@ -545,6 +554,7 @@ class Mutex {
  public:
   Mutex();
   Mutex(const Mutex &) = delete;
+  ~Mutex();
   void lock();
   bool try_lock();
   void unlock();
@@ -554,6 +564,9 @@ class Mutex {
  private:
 #if defined(USE_ESP32) || defined(USE_LIBRETINY)
   SemaphoreHandle_t handle_;
+#else
+  // d-pointer to store private data on new platforms
+  void *handle_;  // NOLINT(clang-diagnostic-unused-private-field)
 #endif
 };
 

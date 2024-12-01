@@ -8,7 +8,7 @@ import logging
 
 from esphome import codegen as cg, config_validation as cv
 from esphome.const import CONF_ITEMS
-from esphome.core import Lambda
+from esphome.core import ID, Lambda
 from esphome.cpp_generator import LambdaExpression, MockObj
 from esphome.cpp_types import uint32
 from esphome.schema_extractors import SCHEMA_EXTRACT, schema_extractor
@@ -72,6 +72,12 @@ class LValidator:
             )
         if self.retmapper is not None:
             return self.retmapper(value)
+        if isinstance(value, ID):
+            return await cg.get_variable(value)
+        if isinstance(value, list):
+            value = [
+                await cg.get_variable(x) if isinstance(x, ID) else x for x in value
+            ]
         return cg.safe_exp(value)
 
 
@@ -438,6 +444,7 @@ CONF_HEADER_MODE = "header_mode"
 CONF_HOME = "home"
 CONF_INITIAL_FOCUS = "initial_focus"
 CONF_KEY_CODE = "key_code"
+CONF_KEYPADS = "keypads"
 CONF_LAYOUT = "layout"
 CONF_LEFT_BUTTON = "left_button"
 CONF_LINE_WIDTH = "line_width"

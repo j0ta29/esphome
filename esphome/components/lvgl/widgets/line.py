@@ -39,7 +39,10 @@ LINE_SCHEMA = {
 class LineType(WidgetType):
     def __init__(self):
         super().__init__(
-            CONF_LINE, LvType("lv_line_t"), (CONF_MAIN,), LINE_SCHEMA, modify_schema={}
+            CONF_LINE,
+            LvType("lv_line_t"),
+            (CONF_MAIN,),
+            LINE_SCHEMA,
         )
 
     async def to_code(self, w: Widget, config):

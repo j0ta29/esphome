@@ -32,8 +32,10 @@ bool ModbusController::send_next_command_() {
             r.skip_updates_counter = this->offline_skip_updates_;
           }
         }
+
+        this->module_offline_ = true;
+        this->offline_callback_.call((int) command->function_code, command->register_address);
       }
-      this->module_offline_ = true;
       ESP_LOGD(TAG, "Modbus command to device=%d register=0x%02X no response received - removed from send queue",
                this->address_, command->register_address);
       this->command_queue_.pop_front();
@@ -68,8 +70,10 @@ void ModbusController::on_modbus_data(const std::vector<uint8_t> &data) {
           r.skip_updates_counter = 0;
         }
       }
+      // Restore module online state
+      this->module_offline_ = false;
+      this->online_callback_.call((int) current_command->function_code, current_command->register_address);
     }
-    this->module_offline_ = false;
 
     // Move the commandItem to the response queue
     current_command->payload = data;
@@ -618,56 +622,100 @@ int64_t payload_to_number(const std::vector<uint8_t> &data, SensorValueType sens
                           uint32_t bitmask) {
   int64_t value = 0;  // int64_t because it can hold signed and unsigned 32 bits
 
+  size_t size = data.size() - offset;
+  bool error = false;
   switch (sensor_value_type) {
     case SensorValueType::U_WORD:
-      value = mask_and_shift_by_rightbit(get_data<uint16_t>(data, offset), bitmask);  // default is 0xFFFF ;
+      if (size >= 2) {
+        value = mask_and_shift_by_rightbit(get_data<uint16_t>(data, offset), bitmask);  // default is 0xFFFF ;
+      } else {
+        error = true;
+      }
       break;
     case SensorValueType::U_DWORD:
     case SensorValueType::FP32:
-      value = get_data<uint32_t>(data, offset);
-      value = mask_and_shift_by_rightbit((uint32_t) value, bitmask);
+      if (size >= 4) {
+        value = get_data<uint32_t>(data, offset);
+        value = mask_and_shift_by_rightbit((uint32_t) value, bitmask);
+      } else {
+        error = true;
+      }
       break;
     case SensorValueType::U_DWORD_R:
     case SensorValueType::FP32_R:
-      value = get_data<uint32_t>(data, offset);
-      value = static_cast<uint32_t>(value & 0xFFFF) << 16 | (value & 0xFFFF0000) >> 16;
-      value = mask_and_shift_by_rightbit((uint32_t) value, bitmask);
+      if (size >= 4) {
+        value = get_data<uint32_t>(data, offset);
+        value = static_cast<uint32_t>(value & 0xFFFF) << 16 | (value & 0xFFFF0000) >> 16;
+        value = mask_and_shift_by_rightbit((uint32_t) value, bitmask);
+      } else {
+        error = true;
+      }
       break;
     case SensorValueType::S_WORD:
-      value = mask_and_shift_by_rightbit(get_data<int16_t>(data, offset),
-                                         bitmask);  // default is 0xFFFF ;
+      if (size >= 2) {
+        value = mask_and_shift_by_rightbit(get_data<int16_t>(data, offset),
+                                           bitmask);  // default is 0xFFFF ;
+      } else {
+        error = true;
+      }
       break;
     case SensorValueType::S_DWORD:
-      value = mask_and_shift_by_rightbit(get_data<int32_t>(data, offset), bitmask);
+      if (size >= 4) {
+        value = mask_and_shift_by_rightbit(get_data<int32_t>(data, offset), bitmask);
+      } else {
+        error = true;
+      }
       break;
     case SensorValueType::S_DWORD_R: {
-      value = get_data<uint32_t>(data, offset);
-      // Currently the high word is at the low position
-      // the sign bit is therefore at low before the switch
-      uint32_t sign_bit = (value & 0x8000) << 16;
-      value = mask_and_shift_by_rightbit(
-          static_cast<int32_t>(((value & 0x7FFF) << 16 | (value & 0xFFFF0000) >> 16) | sign_bit), bitmask);
+      if (size >= 4) {
+        value = get_data<uint32_t>(data, offset);
+        // Currently the high word is at the low position
+        // the sign bit is therefore at low before the switch
+        uint32_t sign_bit = (value & 0x8000) << 16;
+        value = mask_and_shift_by_rightbit(
+            static_cast<int32_t>(((value & 0x7FFF) << 16 | (value & 0xFFFF0000) >> 16) | sign_bit), bitmask);
+      } else {
+        error = true;
+      }
     } break;
     case SensorValueType::U_QWORD:
     case SensorValueType::S_QWORD:
       // Ignore bitmask for QWORD
-      value = get_data<uint64_t>(data, offset);
+      if (size >= 8) {
+        value = get_data<uint64_t>(data, offset);
+      } else {
+        error = true;
+      }
       break;
     case SensorValueType::U_QWORD_R:
     case SensorValueType::S_QWORD_R: {
       // Ignore bitmask for QWORD
-      uint64_t tmp = get_data<uint64_t>(data, offset);
-      value = (tmp << 48) | (tmp >> 48) | ((tmp & 0xFFFF0000) << 16) | ((tmp >> 16) & 0xFFFF0000);
+      if (size >= 8) {
+        uint64_t tmp = get_data<uint64_t>(data, offset);
+        value = (tmp << 48) | (tmp >> 48) | ((tmp & 0xFFFF0000) << 16) | ((tmp >> 16) & 0xFFFF0000);
+      } else {
+        error = true;
+      }
     } break;
     case SensorValueType::RAW:
     default:
       break;
   }
+  if (error)
+    ESP_LOGE(TAG, "not enough data for value");
   return value;
 }
 
 void ModbusController::add_on_command_sent_callback(std::function<void(int, int)> &&callback) {
   this->command_sent_callback_.add(std::move(callback));
+}
+
+void ModbusController::add_on_online_callback(std::function<void(int, int)> &&callback) {
+  this->online_callback_.add(std::move(callback));
+}
+
+void ModbusController::add_on_offline_callback(std::function<void(int, int)> &&callback) {
+  this->offline_callback_.add(std::move(callback));
 }
 
 }  // namespace modbus_controller

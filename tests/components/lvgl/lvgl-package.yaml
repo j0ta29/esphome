@@ -11,6 +11,12 @@ substitutions:
   check: "\U000F012C"
   arrow_down: "\U000F004B"
 
+binary_sensor:
+  - id: enter_sensor
+    platform: template
+  - id: left_sensor
+    platform: template
+
 lvgl:
   log_level: debug
   resume_on_input: true
@@ -93,6 +99,10 @@ lvgl:
     - touchscreen_id: tft_touch
       long_press_repeat_time: 200ms
       long_press_time: 500ms
+  keypads:
+    - initial_focus: button_button
+      enter: enter_sensor
+      next: left_sensor
 
   msgboxes:
     - id: message_box
@@ -161,9 +171,13 @@ lvgl:
             duration: 1s
             auto_start: true
             on_all_events:
-              logger.log:
-                format: "Event %s"
-                args: ['lv_event_code_name_for(event->code).c_str()']
+              - logger.log:
+                  format: "Event %s"
+                  args: ['lv_event_code_name_for(event->code).c_str()']
+              - lvgl.animimg.update:
+                  id: anim_img
+                  src: !lambda "return {dog_image, cat_image};"
+                  duration: 2s
         - label:
             id: hello_label
             text: Hello world
@@ -458,6 +472,18 @@ lvgl:
 
     - id: page2
       widgets:
+        - qrcode:
+            id: lv_qr
+            align: left_mid
+            size: 100
+            light_color: whitesmoke
+            dark_color: steelblue
+            text: esphome.io
+            on_click:
+              lvgl.qrcode.update:
+                id: lv_qr
+                text: homeassistant.io
+
         - slider:
             min_value: 0
             max_value: 255
@@ -613,7 +639,7 @@ lvgl:
                   - image:
                       grid_cell_row_pos: 0
                       grid_cell_column_pos: 0
-                      src: dog_image
+                      src: !lambda return dog_image;
                       on_click:
                         then:
                           - lvgl.tabview.select:
