@@ -38,7 +38,7 @@ def literal(arg):
 def call_lambda(lamb: LambdaExpression):
     expr = lamb.content.strip()
     if expr.startswith("return") and expr.endswith(";"):
-        return expr[7:][:-1]
+        return expr[6:][:-1].strip()
     return f"{lamb}()"
 
 
@@ -168,6 +168,7 @@ LV_EVENT_MAP = {
     "READY": "READY",
     "CANCEL": "CANCEL",
     "ALL_EVENTS": "ALL",
+    "CHANGE": "VALUE_CHANGED",
 }
 
 LV_EVENT_TRIGGERS = tuple(f"on_{x.lower()}" for x in LV_EVENT_MAP)

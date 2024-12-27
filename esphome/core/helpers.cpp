@@ -259,10 +259,15 @@ bool random_bytes(uint8_t *data, size_t len) {
 bool str_equals_case_insensitive(const std::string &a, const std::string &b) {
   return strcasecmp(a.c_str(), b.c_str()) == 0;
 }
+#if ESP_IDF_VERSION_MAJOR >= 5
+bool str_startswith(const std::string &str, const std::string &start) { return str.starts_with(start); }
+bool str_endswith(const std::string &str, const std::string &end) { return str.ends_with(end); }
+#else
 bool str_startswith(const std::string &str, const std::string &start) { return str.rfind(start, 0) == 0; }
 bool str_endswith(const std::string &str, const std::string &end) {
   return str.rfind(end) == (str.size() - end.size());
 }
+#endif
 std::string str_truncate(const std::string &str, size_t length) {
   return str.length() > length ? str.substr(0, length) : str;
 }
@@ -762,7 +767,8 @@ bool mac_address_is_valid(const uint8_t *mac) {
   return !(is_all_zeros || is_all_ones);
 }
 
-void delay_microseconds_safe(uint32_t us) {  // avoids CPU locks that could trigger WDT or affect WiFi/BT stability
+void IRAM_ATTR HOT delay_microseconds_safe(uint32_t us) {
+  // avoids CPU locks that could trigger WDT or affect WiFi/BT stability
   uint32_t start = micros();
 
   const uint32_t lag = 5000;  // microseconds, specifies the maximum time for a CPU busy-loop.
