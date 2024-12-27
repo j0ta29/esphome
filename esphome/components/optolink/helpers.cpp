@@ -3,6 +3,7 @@
 #include "helpers.h"
 #include "esphome/core/log.h"
 #include <cstring>
+#include <algorithm>
 
 namespace esphome {
 namespace optolink {
@@ -14,10 +15,9 @@ void rtrim(std::string &s) {
     return;
 
   std::string::iterator p;
-  for (p = s.end(); p != s.begin() && *--p == ' ';)
-    ;
+  p = std::find_if(s.rbegin(), s.rend(), [](char ch) { return ch != ' '; }).base();
 
-  if (*p != ' ')
+  if (p != s.begin() && *p != ' ')
     p++;
 
   s.erase(p, s.end());
