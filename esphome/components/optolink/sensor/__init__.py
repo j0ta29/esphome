@@ -1,6 +1,6 @@
 import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome.components import sensor
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_ADDRESS,
     CONF_BYTES,
@@ -9,6 +9,7 @@ from esphome.const import (
     CONF_MIN_VALUE,
     CONF_TYPE,
 )
+
 from .. import (
     CONF_OPTOLINK_ID,
     SENSOR_BASE_SCHEMA,
@@ -35,7 +36,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(OptolinkSensor),
             cv.Optional(CONF_TYPE, default="DATAPOINT"): cv.enum(TYPE, upper=True),
             cv.Optional(CONF_ADDRESS): cv.hex_uint32_t,
-            cv.Optional(CONF_BYTES): cv.one_of(1, 2, 4, int=True),
+            cv.Optional(CONF_BYTES): cv.one_of(1, 2, 3, 4, int=True),
             cv.Optional(CONF_MIN_VALUE): cv.float_,
         }
     )
