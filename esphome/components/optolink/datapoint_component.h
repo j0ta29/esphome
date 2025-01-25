@@ -69,7 +69,7 @@ class conv2_100_F : public DPType {
  public:
   void encode(uint8_t *out, DPValue in);
   DPValue decode(const uint8_t *in);
-  virtual const size_t get_length() const { return 2; }
+  virtual const size_t getLength() const { return 2; }
 };
 
 class conv4_1000_F : public DPType {

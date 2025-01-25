@@ -2,9 +2,6 @@
 
 #include "datapoint_component.h"
 #include "optolink.h"
-#ifdef USE_API
-#include "esphome/components/api/api_server.h"
-#endif
 
 namespace esphome {
 namespace optolink {
@@ -139,12 +136,13 @@ void DatapointComponent::datapoint_read_request_() {
   } else {
     if (!optolink_->communication_suspended()) {
       if ((read_retries_ == 0 || read_retries_ >= max_retries_until_reset_) || get_update_interval() > 10000) {
-        if (optolink_->read_value(datapoint_)) {
+        if (optolink_->read_datapoint(datapoint_)) {
           read_retries_ = 1;
         }
       } else {
         read_retries_++;
-        ESP_LOGW(TAG, "%d. read request for %s rejected due to outstanding running request - increase update_interval!",
+        ESP_LOGW(TAG,
+                 "%d. read request for %s rejected due to outstanding running request - check datapoint configuration!",
                  read_retries_, get_component_name().c_str());
       }
     } else {
@@ -188,7 +186,7 @@ void DatapointComponent::datapoint_write_request_(DPValue dp_value) {
 #endif
 
     dp_value_outstanding_ = dp_value;
-    if (optolink_->write_value(datapoint_, dp_value_outstanding_)) {
+    if (optolink_->write_datapoint(datapoint_, dp_value_outstanding_)) {
       is_dp_value_writing_outstanding_ = false;
     } else {
       ESP_LOGW(TAG, "write request for %s rejected due to outstanding running request - increase update_interval!",

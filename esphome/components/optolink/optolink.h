@@ -36,8 +36,8 @@ class Optolink : public esphome::Component, public Print {
   void set_rx_pin(int rx_pin) { rx_pin_ = rx_pin; }
   void set_tx_pin(int tx_pin) { tx_pin_ = tx_pin; }
 
-  bool write_value(IDatapoint *datapoint, DPValue dp_value);
-  bool read_value(IDatapoint *datapoint);
+  bool write_datapoint(IDatapoint *datapoint, DPValue dp_value);
+  bool read_datapoint(IDatapoint *datapoint);
 
   std::string get_state() { return state_; }
 

@@ -65,7 +65,9 @@ void Optolink::communication_check_() {
     ESP_LOGI(TAG, "timestamp rollover");
     timestamp_send_ = 0;
     timestamp_receive_ = 0;
-  } else if (timestamp_send_ > 0 && (timestamp_loop_ - timestamp_receive_) > COMMUNICATION_CHECK_WINDOW) {
+  } else if (timestamp_send_ == 0 || timestamp_receive_ == 0) {
+    // too less data to analyze communication statistics
+  } else if ((timestamp_loop_ - timestamp_receive_) > COMMUNICATION_CHECK_WINDOW) {
     // last response older than 10 sec - check if there was no request in same time window except last two seconds
     if (timestamp_send_ > timestamp_loop_ - MAX_RESPONSE_DELAY) {
       // request too fresh -> possiblly still waiting for response
@@ -98,14 +100,13 @@ void Optolink::resume_communication_() {
 
 bool Optolink::communication_suspended() { return (timestamp_disruption_ != 0); }
 
-bool Optolink::read_value(IDatapoint *datapoint) {
+bool Optolink::read_datapoint(IDatapoint *datapoint) {
   if (datapoint != nullptr && !communication_suspended()) {
-    ESP_LOGI(TAG, "requesting value of datapoint %s", datapoint->getName());
+    ESP_LOGI(TAG, "requesting value (%d bytes) from datapoint %s", datapoint->getLength(), datapoint->getName());
     if (VitoWiFi.readDatapoint(*datapoint)) {
       notify_send();
     } else {
       ESP_LOGE(TAG, "read request rejected due to queue overload - queue size: %d", VitoWiFi.queueSize());
-      suspend_communication_();
       for (auto *dp : IDatapoint::getCollection()) {
         ESP_LOGD(TAG, "queued datapoint: %s", dp->getName());
       }
@@ -115,11 +116,11 @@ bool Optolink::read_value(IDatapoint *datapoint) {
   return true;
 }
 
-bool Optolink::write_value(IDatapoint *datapoint, DPValue dp_value) {
+bool Optolink::write_datapoint(IDatapoint *datapoint, DPValue dp_value) {
   if (datapoint != nullptr && !communication_suspended()) {
     char buffer[64];
     dp_value.getString(buffer, sizeof(buffer));
-    ESP_LOGI(TAG, "sending value %s of datapoint %s", buffer, datapoint->getName());
+    ESP_LOGI(TAG, "sending value %s (%d bytes) to datapoint %s", buffer, datapoint->getLength(), datapoint->getName());
     if (VitoWiFi.writeDatapoint(*datapoint, dp_value)) {
       notify_send();
     } else {
