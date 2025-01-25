@@ -8,10 +8,11 @@ namespace online_image {
 
 static const char *const TAG = "online_image.decoder";
 
-void ImageDecoder::set_size(int width, int height) {
-  this->image_->resize_(width, height);
+bool ImageDecoder::set_size(int width, int height) {
+  bool resized = this->image_->resize_(width, height);
   this->x_scale_ = static_cast<double>(this->image_->buffer_width_) / width;
   this->y_scale_ = static_cast<double>(this->image_->buffer_height_) / height;
+  return resized;
 }
 
 void ImageDecoder::draw(int x, int y, int w, int h, const Color &color) {
