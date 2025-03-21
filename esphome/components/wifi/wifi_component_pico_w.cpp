@@ -1,6 +1,7 @@
 
 #include "wifi_component.h"
 
+#ifdef USE_WIFI
 #ifdef USE_RP2040
 
 #include "lwip/dns.h"
@@ -188,7 +189,7 @@ bssid_t WiFiComponent::wifi_bssid() {
 }
 std::string WiFiComponent::wifi_ssid() { return WiFi.SSID().c_str(); }
 int8_t WiFiComponent::wifi_rssi() { return WiFi.RSSI(); }
-int32_t WiFiComponent::wifi_channel_() { return WiFi.channel(); }
+int32_t WiFiComponent::get_wifi_channel() { return WiFi.channel(); }
 
 network::IPAddresses WiFiComponent::wifi_sta_ip_addresses() {
   network::IPAddresses addresses;
@@ -217,4 +218,5 @@ void WiFiComponent::wifi_pre_setup_() {}
 }  // namespace wifi
 }  // namespace esphome
 
+#endif
 #endif

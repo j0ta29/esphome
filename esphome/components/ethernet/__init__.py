@@ -1,6 +1,6 @@
+import logging
+
 from esphome import pins
-import esphome.config_validation as cv
-import esphome.final_validate as fv
 import esphome.codegen as cg
 from esphome.components.esp32 import add_idf_sdkconfig_option, get_esp32_variant
 from esphome.components.esp32.const import (
@@ -8,35 +8,41 @@ from esphome.components.esp32.const import (
     VARIANT_ESP32S2,
     VARIANT_ESP32S3,
 )
+from esphome.components.network import IPAddress
+from esphome.components.spi import CONF_INTERFACE_INDEX, get_spi_interface
+import esphome.config_validation as cv
 from esphome.const import (
-    CONF_DOMAIN,
-    CONF_ID,
-    CONF_VALUE,
-    CONF_MANUAL_IP,
-    CONF_STATIC_IP,
-    CONF_TYPE,
-    CONF_USE_ADDRESS,
-    CONF_GATEWAY,
-    CONF_SUBNET,
+    CONF_ADDRESS,
+    CONF_CLK_PIN,
+    CONF_CS_PIN,
     CONF_DNS1,
     CONF_DNS2,
-    CONF_CLK_PIN,
+    CONF_DOMAIN,
+    CONF_GATEWAY,
+    CONF_ID,
+    CONF_INTERRUPT_PIN,
+    CONF_MANUAL_IP,
     CONF_MISO_PIN,
     CONF_MOSI_PIN,
-    CONF_CS_PIN,
-    CONF_INTERRUPT_PIN,
+    CONF_PAGE_ID,
+    CONF_POLLING_INTERVAL,
     CONF_RESET_PIN,
     CONF_SPI,
-    CONF_PAGE_ID,
-    CONF_ADDRESS,
+    CONF_STATIC_IP,
+    CONF_SUBNET,
+    CONF_TYPE,
+    CONF_USE_ADDRESS,
+    CONF_VALUE,
+    KEY_CORE,
+    KEY_FRAMEWORK_VERSION,
 )
-from esphome.core import CORE, coroutine_with_priority
-from esphome.components.network import IPAddress
-from esphome.components.spi import get_spi_interface, CONF_INTERFACE_INDEX
+from esphome.core import CORE, TimePeriodMilliseconds, coroutine_with_priority
+import esphome.final_validate as fv
 
 CONFLICTS_WITH = ["wifi"]
 DEPENDENCIES = ["esp32"]
 AUTO_LOAD = ["network"]
+LOGGER = logging.getLogger(__name__)
 
 ethernet_ns = cg.esphome_ns.namespace("ethernet")
 PHYRegister = ethernet_ns.struct("PHYRegister")
@@ -59,9 +65,11 @@ ETHERNET_TYPES = {
     "KSZ8081": EthernetType.ETHERNET_TYPE_KSZ8081,
     "KSZ8081RNA": EthernetType.ETHERNET_TYPE_KSZ8081RNA,
     "W5500": EthernetType.ETHERNET_TYPE_W5500,
+    "OPENETH": EthernetType.ETHERNET_TYPE_OPENETH,
 }
 
 SPI_ETHERNET_TYPES = ["W5500"]
+SPI_ETHERNET_DEFAULT_POLLING_INTERVAL = TimePeriodMilliseconds(milliseconds=10)
 
 emac_rmii_clock_mode_t = cg.global_ns.enum("emac_rmii_clock_mode_t")
 emac_rmii_clock_gpio_t = cg.global_ns.enum("emac_rmii_clock_gpio_t")
@@ -87,16 +95,34 @@ CLK_MODES = {
 
 MANUAL_IP_SCHEMA = cv.Schema(
     {
-        cv.Required(CONF_STATIC_IP): cv.ipv4,
-        cv.Required(CONF_GATEWAY): cv.ipv4,
-        cv.Required(CONF_SUBNET): cv.ipv4,
-        cv.Optional(CONF_DNS1, default="0.0.0.0"): cv.ipv4,
-        cv.Optional(CONF_DNS2, default="0.0.0.0"): cv.ipv4,
+        cv.Required(CONF_STATIC_IP): cv.ipv4address,
+        cv.Required(CONF_GATEWAY): cv.ipv4address,
+        cv.Required(CONF_SUBNET): cv.ipv4address,
+        cv.Optional(CONF_DNS1, default="0.0.0.0"): cv.ipv4address,
+        cv.Optional(CONF_DNS2, default="0.0.0.0"): cv.ipv4address,
     }
 )
 
 EthernetComponent = ethernet_ns.class_("EthernetComponent", cg.Component)
 ManualIP = ethernet_ns.struct("ManualIP")
+
+
+def _is_framework_spi_polling_mode_supported():
+    # SPI Ethernet without IRQ feature is added in
+    # esp-idf >= (5.3+ ,5.2.1+, 5.1.4) and arduino-esp32 >= 3.0.0
+    framework_version = CORE.data[KEY_CORE][KEY_FRAMEWORK_VERSION]
+    if CORE.using_esp_idf:
+        if framework_version >= cv.Version(5, 3, 0):
+            return True
+        if cv.Version(5, 3, 0) > framework_version >= cv.Version(5, 2, 1):
+            return True
+        if cv.Version(5, 2, 0) > framework_version >= cv.Version(5, 1, 4):
+            return True
+        return False
+    if CORE.using_arduino:
+        return framework_version >= cv.Version(3, 0, 0)
+    # fail safe: Unknown framework
+    return False
 
 
 def _validate(config):
@@ -106,6 +132,27 @@ def _validate(config):
         else:
             use_address = CORE.name + config[CONF_DOMAIN]
         config[CONF_USE_ADDRESS] = use_address
+    if config[CONF_TYPE] in SPI_ETHERNET_TYPES:
+        if _is_framework_spi_polling_mode_supported():
+            if CONF_POLLING_INTERVAL in config and CONF_INTERRUPT_PIN in config:
+                raise cv.Invalid(
+                    f"Cannot specify more than one of {CONF_INTERRUPT_PIN}, {CONF_POLLING_INTERVAL}"
+                )
+            if CONF_POLLING_INTERVAL not in config and CONF_INTERRUPT_PIN not in config:
+                config[CONF_POLLING_INTERVAL] = SPI_ETHERNET_DEFAULT_POLLING_INTERVAL
+        else:
+            if CONF_POLLING_INTERVAL in config:
+                raise cv.Invalid(
+                    "In this version of the framework "
+                    f"({CORE.target_framework} {CORE.data[KEY_CORE][KEY_FRAMEWORK_VERSION]}), "
+                    f"'{CONF_POLLING_INTERVAL}' is not supported."
+                )
+            if CONF_INTERRUPT_PIN not in config:
+                raise cv.Invalid(
+                    "In this version of the framework "
+                    f"({CORE.target_framework} {CORE.data[KEY_CORE][KEY_FRAMEWORK_VERSION]}), "
+                    f"'{CONF_INTERRUPT_PIN}' is a required option for [ethernet]."
+                )
     return config
 
 
@@ -156,6 +203,11 @@ SPI_SCHEMA = BASE_SCHEMA.extend(
             cv.Optional(CONF_CLOCK_SPEED, default="26.67MHz"): cv.All(
                 cv.frequency, cv.int_range(int(8e6), int(80e6))
             ),
+            # Set default value (SPI_ETHERNET_DEFAULT_POLLING_INTERVAL) at _validate()
+            cv.Optional(CONF_POLLING_INTERVAL): cv.All(
+                cv.positive_time_period_milliseconds,
+                cv.Range(min=TimePeriodMilliseconds(milliseconds=1)),
+            ),
         }
     ),
 )
@@ -171,6 +223,7 @@ CONFIG_SCHEMA = cv.All(
             "KSZ8081": RMII_SCHEMA,
             "KSZ8081RNA": RMII_SCHEMA,
             "W5500": SPI_SCHEMA,
+            "OPENETH": BASE_SCHEMA,
         },
         upper=True,
     ),
@@ -203,11 +256,11 @@ FINAL_VALIDATE_SCHEMA = _final_validate
 def manual_ip(config):
     return cg.StructInitializer(
         ManualIP,
-        ("static_ip", IPAddress(*config[CONF_STATIC_IP].args)),
-        ("gateway", IPAddress(*config[CONF_GATEWAY].args)),
-        ("subnet", IPAddress(*config[CONF_SUBNET].args)),
-        ("dns1", IPAddress(*config[CONF_DNS1].args)),
-        ("dns2", IPAddress(*config[CONF_DNS2].args)),
+        ("static_ip", IPAddress(str(config[CONF_STATIC_IP]))),
+        ("gateway", IPAddress(str(config[CONF_GATEWAY]))),
+        ("subnet", IPAddress(str(config[CONF_SUBNET]))),
+        ("dns1", IPAddress(str(config[CONF_DNS1]))),
+        ("dns2", IPAddress(str(config[CONF_DNS2]))),
     )
 
 
@@ -232,6 +285,10 @@ async def to_code(config):
         cg.add(var.set_cs_pin(config[CONF_CS_PIN]))
         if CONF_INTERRUPT_PIN in config:
             cg.add(var.set_interrupt_pin(config[CONF_INTERRUPT_PIN]))
+        else:
+            cg.add(var.set_polling_interval(config[CONF_POLLING_INTERVAL]))
+        if _is_framework_spi_polling_mode_supported():
+            cg.add_define("USE_ETHERNET_SPI_POLLING_SUPPORT")
         if CONF_RESET_PIN in config:
             cg.add(var.set_reset_pin(config[CONF_RESET_PIN]))
         cg.add(var.set_clock_speed(config[CONF_CLOCK_SPEED]))
@@ -240,6 +297,9 @@ async def to_code(config):
         if CORE.using_esp_idf:
             add_idf_sdkconfig_option("CONFIG_ETH_USE_SPI_ETHERNET", True)
             add_idf_sdkconfig_option("CONFIG_ETH_SPI_ETHERNET_W5500", True)
+    elif config[CONF_TYPE] == "OPENETH":
+        cg.add_define("USE_ETHERNET_OPENETH")
+        add_idf_sdkconfig_option("CONFIG_ETH_USE_OPENETH", True)
     else:
         cg.add(var.set_phy_addr(config[CONF_PHY_ADDR]))
         cg.add(var.set_mdc_pin(config[CONF_MDC_PIN]))

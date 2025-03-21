@@ -34,8 +34,8 @@ void ILI9XXXDisplay::setup() {
   ESP_LOGD(TAG, "Setting up ILI9xxx");
 
   this->setup_pins_();
-  this->init_lcd(this->init_sequence_);
-  this->init_lcd(this->extra_init_sequence_.data());
+  this->init_lcd_(this->init_sequence_);
+  this->init_lcd_(this->extra_init_sequence_.data());
   switch (this->pixel_mode_) {
     case PIXEL_MODE_16:
       if (this->is_18bitdisplay_) {
@@ -66,12 +66,9 @@ void ILI9XXXDisplay::setup() {
 void ILI9XXXDisplay::alloc_buffer_() {
   if (this->buffer_color_mode_ == BITS_16) {
     this->init_internal_(this->get_buffer_length_() * 2);
-    if (this->buffer_ != nullptr) {
-      return;
-    }
-    this->buffer_color_mode_ = BITS_8;
+  } else {
+    this->init_internal_(this->get_buffer_length_());
   }
-  this->init_internal_(this->get_buffer_length_());
   if (this->buffer_ == nullptr) {
     this->mark_failed();
   }
@@ -118,6 +115,7 @@ void ILI9XXXDisplay::dump_config() {
   ESP_LOGCONFIG(TAG, "  Swap_xy: %s", YESNO(this->swap_xy_));
   ESP_LOGCONFIG(TAG, "  Mirror_x: %s", YESNO(this->mirror_x_));
   ESP_LOGCONFIG(TAG, "  Mirror_y: %s", YESNO(this->mirror_y_));
+  ESP_LOGCONFIG(TAG, "  Invert colors: %s", YESNO(this->pre_invertcolors_));
 
   if (this->is_failed()) {
     ESP_LOGCONFIG(TAG, "  => Failed to init Memory: YES!");
@@ -154,7 +152,6 @@ void ILI9XXXDisplay::fill(Color color) {
         }
       }
       return;
-      break;
     default:
       new_color = display::ColorUtil::color_to_332(color, display::ColorOrder::COLOR_ORDER_RGB);
       break;
@@ -313,8 +310,9 @@ void ILI9XXXDisplay::draw_pixels_at(int x_start, int y_start, int w, int h, cons
   // do color conversion pixel-by-pixel into the buffer and draw it later. If this is happening the user has not
   // configured the renderer well.
   if (this->rotation_ != display::DISPLAY_ROTATION_0_DEGREES || bitness != display::COLOR_BITNESS_565 || !big_endian) {
-    return display::Display::draw_pixels_at(x_start, y_start, w, h, ptr, order, bitness, big_endian, x_offset, y_offset,
-                                            x_pad);
+    display::Display::draw_pixels_at(x_start, y_start, w, h, ptr, order, bitness, big_endian, x_offset, y_offset,
+                                     x_pad);
+    return;
   }
   this->set_addr_window_(x_start, y_start, x_start + w - 1, y_start + h - 1);
   // x_ and y_offset are offsets into the source buffer, unrelated to our own offsets into the display.
@@ -405,39 +403,26 @@ void ILI9XXXDisplay::reset_() {
   }
 }
 
-void ILI9XXXDisplay::init_lcd(const uint8_t *addr) {
+void ILI9XXXDisplay::init_lcd_(const uint8_t *addr) {
   if (addr == nullptr)
     return;
   uint8_t cmd, x, num_args;
   while ((cmd = *addr++) != 0) {
     x = *addr++;
-    if (cmd == ILI9XXX_DELAY) {
-      ESP_LOGD(TAG, "Delay %dms", x);
-      delay(x);
+    if (x == ILI9XXX_DELAY_FLAG) {
+      cmd &= 0x7F;
+      ESP_LOGV(TAG, "Delay %dms", cmd);
+      delay(cmd);
     } else {
       num_args = x & 0x7F;
-      ESP_LOGD(TAG, "Command %02X, length %d, bits %02X", cmd, num_args, *addr);
+      ESP_LOGV(TAG, "Command %02X, length %d, bits %02X", cmd, num_args, *addr);
       this->send_command(cmd, addr, num_args);
       addr += num_args;
       if (x & 0x80) {
-        ESP_LOGD(TAG, "Delay 150ms");
+        ESP_LOGV(TAG, "Delay 150ms");
         delay(150);  // NOLINT
       }
     }
-  }
-}
-
-void ILI9XXXGC9A01A::init_lcd(const uint8_t *addr) {
-  if (addr == nullptr)
-    return;
-  uint8_t cmd, x, num_args;
-  while ((cmd = *addr++) != 0) {
-    x = *addr++;
-    num_args = x & 0x7F;
-    this->send_command(cmd, addr, num_args);
-    addr += num_args;
-    if (x & 0x80)
-      delay(150);  // NOLINT
   }
 }
 

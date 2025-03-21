@@ -1,4 +1,5 @@
 #include "api_server.h"
+#ifdef USE_API
 #include <cerrno>
 #include "api_connection.h"
 #include "esphome/components/network/util.h"
@@ -71,7 +72,7 @@ void APIServer::setup() {
     logger::global_logger->add_on_log_callback([this](int level, const char *tag, const char *message) {
       for (auto &c : this->clients_) {
         if (!c->remove_)
-          c->send_log_message(level, tag, message);
+          c->try_send_log_message(level, tag, message);
       }
     });
   }
@@ -85,7 +86,7 @@ void APIServer::setup() {
         [this](const std::shared_ptr<esp32_camera::CameraImage> &image) {
           for (auto &c : this->clients_) {
             if (!c->remove_)
-              c->send_camera_state(image);
+              c->set_camera_state(image);
           }
         });
   }
@@ -359,8 +360,18 @@ void APIServer::subscribe_home_assistant_state(std::string entity_id, optional<s
       .entity_id = std::move(entity_id),
       .attribute = std::move(attribute),
       .callback = std::move(f),
+      .once = false,
   });
 }
+void APIServer::get_home_assistant_state(std::string entity_id, optional<std::string> attribute,
+                                         std::function<void(std::string)> f) {
+  this->state_subs_.push_back(HomeAssistantStateSubscription{
+      .entity_id = std::move(entity_id),
+      .attribute = std::move(attribute),
+      .callback = std::move(f),
+      .once = true,
+  });
+};
 const std::vector<APIServer::HomeAssistantStateSubscription> &APIServer::get_state_subs() const {
   return this->state_subs_;
 }
@@ -393,3 +404,4 @@ void APIServer::on_alarm_control_panel_update(alarm_control_panel::AlarmControlP
 
 }  // namespace api
 }  // namespace esphome
+#endif

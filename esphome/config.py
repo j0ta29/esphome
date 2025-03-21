@@ -1,40 +1,38 @@
 from __future__ import annotations
+
 import abc
+from contextlib import contextmanager
+import contextvars
 import functools
 import heapq
 import logging
 import re
-
-from typing import Union, Any
-
-from contextlib import contextmanager
-import contextvars
+from typing import Any, Union
 
 import voluptuous as vol
 
-from esphome import core, yaml_util, loader, pins
-import esphome.core.config as core_config
+from esphome import core, loader, pins, yaml_util
+from esphome.config_helpers import Extend, Remove
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_ESPHOME,
-    CONF_ID,
-    CONF_PLATFORM,
-    CONF_PACKAGES,
-    CONF_SUBSTITUTIONS,
     CONF_EXTERNAL_COMPONENTS,
-    TARGET_PLATFORMS,
+    CONF_ID,
+    CONF_MIN_VERSION,
+    CONF_PACKAGES,
+    CONF_PLATFORM,
+    CONF_SUBSTITUTIONS,
 )
-from esphome.core import CORE, EsphomeError, DocumentRange
-from esphome.helpers import indent
-from esphome.util import safe_print, OrderedDict
-
-from esphome.config_helpers import Extend, Remove
-from esphome.loader import get_component, get_platform, ComponentManifest
-from esphome.yaml_util import is_secret, ESPHomeDataBase, ESPForceValue
-from esphome.voluptuous_schema import ExtraKeysInvalid
-from esphome.log import color, Fore
+from esphome.core import CORE, DocumentRange, EsphomeError
+import esphome.core.config as core_config
 import esphome.final_validate as fv
-import esphome.config_validation as cv
-from esphome.types import ConfigType, ConfigFragmentType
+from esphome.helpers import indent
+from esphome.loader import ComponentManifest, get_component, get_platform
+from esphome.log import Fore, color
+from esphome.types import ConfigFragmentType, ConfigType
+from esphome.util import OrderedDict, safe_print
+from esphome.voluptuous_schema import ExtraKeysInvalid
+from esphome.yaml_util import ESPForceValue, ESPHomeDataBase, is_secret
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -784,7 +782,7 @@ def validate_config(
         from esphome.components import substitutions
 
         result[CONF_SUBSTITUTIONS] = {
-            **config.get(CONF_SUBSTITUTIONS, {}),
+            **(config.get(CONF_SUBSTITUTIONS) or {}),
             **command_line_substitutions,
         }
         result.add_output_path([CONF_SUBSTITUTIONS], CONF_SUBSTITUTIONS)
@@ -834,17 +832,21 @@ def validate_config(
     result[CONF_ESPHOME] = config[CONF_ESPHOME]
     result.add_output_path([CONF_ESPHOME], CONF_ESPHOME)
     try:
-        core_config.preload_core_config(config, result)
+        target_platform = core_config.preload_core_config(config, result)
     except vol.Invalid as err:
         result.add_error(err)
         return result
     # Remove temporary esphome config path again, it will be reloaded later
     result.remove_output_path([CONF_ESPHOME], CONF_ESPHOME)
 
+    # Check version number now to avoid loading components that are not supported
+    if min_version := config[CONF_ESPHOME].get(CONF_MIN_VERSION):
+        cv.All(cv.version_number, cv.validate_esphome_version)(min_version)
+
     # First run platform validation steps
-    for key in TARGET_PLATFORMS:
-        if key in config:
-            result.add_validation_step(LoadValidationStep(key, config[key]))
+    result.add_validation_step(
+        LoadValidationStep(target_platform, config[target_platform])
+    )
     result.run_validation_steps()
 
     if result.errors:

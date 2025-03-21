@@ -1,7 +1,7 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome import pins
+import esphome.codegen as cg
 from esphome.components import display, i2c
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_FULL_UPDATE_EVERY,
     CONF_ID,
@@ -53,6 +53,8 @@ MODELS = {
     "inkplate_10": InkplateModel.INKPLATE_10,
     "inkplate_6_plus": InkplateModel.INKPLATE_6_PLUS,
     "inkplate_6_v2": InkplateModel.INKPLATE_6_V2,
+    "inkplate_5": InkplateModel.INKPLATE_5,
+    "inkplate_5_v2": InkplateModel.INKPLATE_5_V2,
 }
 
 CONFIG_SCHEMA = cv.All(

@@ -38,7 +38,7 @@ void RemoteTransmitterComponent::await_target_time_() {
   if (this->target_time_ == 0) {
     this->target_time_ = current_time;
   } else {
-    while (this->target_time_ > micros()) {
+    while ((int32_t) (this->target_time_ - micros()) > 0) {
       // busy loop that ensures micros is constantly called
     }
   }
@@ -52,13 +52,13 @@ void RemoteTransmitterComponent::mark_(uint32_t on_time, uint32_t off_time, uint
   if (this->carrier_duty_percent_ < 100 && (on_time > 0 || off_time > 0)) {
     while (true) {  // Modulate with carrier frequency
       this->target_time_ += on_time;
-      if (this->target_time_ >= target)
+      if ((int32_t) (this->target_time_ - target) >= 0)
         break;
       this->await_target_time_();
       this->pin_->digital_write(false);
 
       this->target_time_ += off_time;
-      if (this->target_time_ >= target)
+      if ((int32_t) (this->target_time_ - target) >= 0)
         break;
       this->await_target_time_();
       this->pin_->digital_write(true);
@@ -78,6 +78,7 @@ void RemoteTransmitterComponent::send_internal(uint32_t send_times, uint32_t sen
   uint32_t on_time, off_time;
   this->calculate_on_off_time_(this->temp_.get_carrier_frequency(), &on_time, &off_time);
   this->target_time_ = 0;
+  this->transmit_trigger_->trigger();
   for (uint32_t i = 0; i < send_times; i++) {
     InterruptLock lock;
     for (int32_t item : this->temp_.get_data()) {
@@ -96,6 +97,7 @@ void RemoteTransmitterComponent::send_internal(uint32_t send_times, uint32_t sen
     if (i + 1 < send_times)
       this->target_time_ += send_wait;
   }
+  this->complete_trigger_->trigger();
 }
 
 }  // namespace remote_transmitter

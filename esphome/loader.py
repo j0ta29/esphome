@@ -1,17 +1,18 @@
-import logging
-from typing import Callable, Optional, Any, ContextManager
-from types import ModuleType
-import importlib
-import importlib.util
-import importlib.resources
-import importlib.abc
-import sys
-from pathlib import Path
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
+import importlib
+import importlib.abc
+import importlib.resources
+import importlib.util
+import logging
+from pathlib import Path
+import sys
+from types import ModuleType
+from typing import Any, Callable, Optional
 
 from esphome.const import SOURCE_FILE_EXTENSIONS
-import esphome.core.config
 from esphome.core import CORE
+import esphome.core.config
 from esphome.types import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class FileResource:
     package: str
     resource: str
 
-    def path(self) -> ContextManager[Path]:
+    def path(self) -> AbstractContextManager[Path]:
         return importlib.resources.as_file(
             importlib.resources.files(self.package) / self.resource
         )
@@ -50,6 +51,10 @@ class ComponentManifest:
     @property
     def is_platform_component(self) -> bool:
         return getattr(self.module, "IS_PLATFORM_COMPONENT", False)
+
+    @property
+    def is_target_platform(self) -> bool:
+        return getattr(self.module, "IS_TARGET_PLATFORM", False)
 
     @property
     def config_schema(self) -> Optional[Any]:
@@ -168,17 +173,25 @@ def install_custom_components_meta_finder():
     install_meta_finder(custom_components_dir)
 
 
-def _lookup_module(domain):
+def _lookup_module(domain, exception):
     if domain in _COMPONENT_CACHE:
         return _COMPONENT_CACHE[domain]
 
     try:
         module = importlib.import_module(f"esphome.components.{domain}")
     except ImportError as e:
-        if "No module named" not in str(e):
+        if exception:
+            raise
+        if "No module named" in str(e):
+            _LOGGER.info(
+                "Unable to import component %s: %s", domain, str(e), exc_info=False
+            )
+        else:
             _LOGGER.error("Unable to import component %s:", domain, exc_info=True)
         return None
     except Exception:  # pylint: disable=broad-except
+        if exception:
+            raise
         _LOGGER.error("Unable to load component %s:", domain, exc_info=True)
         return None
 
@@ -187,14 +200,14 @@ def _lookup_module(domain):
     return manif
 
 
-def get_component(domain):
+def get_component(domain, exception=False):
     assert "." not in domain
-    return _lookup_module(domain)
+    return _lookup_module(domain, exception)
 
 
 def get_platform(domain, platform):
     full = f"{platform}.{domain}"
-    return _lookup_module(full)
+    return _lookup_module(full, False)
 
 
 _COMPONENT_CACHE = {}

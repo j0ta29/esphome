@@ -5,6 +5,7 @@
 #include "esphome/core/optional.h"
 #include "headers.h"
 
+#if defined(USE_SOCKET_IMPL_LWIP_TCP) || defined(USE_SOCKET_IMPL_LWIP_SOCKETS) || defined(USE_SOCKET_IMPL_BSD_SOCKETS)
 namespace esphome {
 namespace socket {
 
@@ -20,7 +21,9 @@ class Socket {
   virtual int close() = 0;
   // not supported yet:
   // virtual int connect(const std::string &address) = 0;
-  // virtual int connect(const struct sockaddr *addr, socklen_t addrlen) = 0;
+#if defined(USE_SOCKET_IMPL_LWIP_SOCKETS) || defined(USE_SOCKET_IMPL_BSD_SOCKETS)
+  virtual int connect(const struct sockaddr *addr, socklen_t addrlen) = 0;
+#endif
   virtual int shutdown(int how) = 0;
 
   virtual int getpeername(struct sockaddr *addr, socklen_t *addrlen) = 0;
@@ -57,3 +60,4 @@ socklen_t set_sockaddr_any(struct sockaddr *addr, socklen_t addrlen, uint16_t po
 
 }  // namespace socket
 }  // namespace esphome
+#endif

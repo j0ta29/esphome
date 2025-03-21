@@ -1,9 +1,15 @@
-﻿import logging
-import esphome.codegen as cg
-import esphome.config_validation as cv
-import esphome.final_validate as fv
-from esphome.components import uart, climate, logger
+import logging
+
 from esphome import automation
+import esphome.codegen as cg
+from esphome.components import climate, logger, uart
+from esphome.components.climate import (
+    CONF_CURRENT_TEMPERATURE,
+    ClimateMode,
+    ClimatePreset,
+    ClimateSwingMode,
+)
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_BEEPER,
     CONF_DISPLAY,
@@ -24,12 +30,7 @@ from esphome.const import (
     CONF_VISUAL,
     CONF_WIFI,
 )
-from esphome.components.climate import (
-    ClimateMode,
-    ClimatePreset,
-    ClimateSwingMode,
-    CONF_CURRENT_TEMPERATURE,
-)
+import esphome.final_validate as fv
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,7 +115,6 @@ SUPPORTED_CLIMATE_PRESETS_SMARTAIR2_OPTIONS = {
 SUPPORTED_CLIMATE_PRESETS_HON_OPTIONS = {
     "AWAY": ClimatePreset.CLIMATE_PRESET_AWAY,
     "BOOST": ClimatePreset.CLIMATE_PRESET_BOOST,
-    "ECO": ClimatePreset.CLIMATE_PRESET_ECO,
     "SLEEP": ClimatePreset.CLIMATE_PRESET_SLEEP,
 }
 
@@ -240,7 +240,9 @@ CONFIG_SCHEMA = cv.All(
                     ): cv.ensure_list(
                         cv.enum(SUPPORTED_HON_CONTROL_METHODS, upper=True)
                     ),
-                    cv.Optional(CONF_BEEPER, default=True): cv.boolean,
+                    cv.Optional(CONF_BEEPER): cv.invalid(
+                        f"The {CONF_BEEPER} option is deprecated, use beeper_on/beeper_off actions or beeper switch for a haier platform instead"
+                    ),
                     cv.Optional(
                         CONF_CONTROL_PACKET_SIZE, default=PROTOCOL_CONTROL_PACKET_SIZE
                     ): cv.int_range(min=PROTOCOL_CONTROL_PACKET_SIZE, max=50),
@@ -254,7 +256,7 @@ CONFIG_SCHEMA = cv.All(
                     ): cv.int_range(min=PROTOCOL_STATUS_MESSAGE_HEADER_SIZE),
                     cv.Optional(
                         CONF_SUPPORTED_PRESETS,
-                        default=["BOOST", "ECO", "SLEEP"],  # No AWAY by default
+                        default=["BOOST", "SLEEP"],  # No AWAY by default
                     ): cv.ensure_list(
                         cv.enum(SUPPORTED_CLIMATE_PRESETS_HON_OPTIONS, upper=True)
                     ),

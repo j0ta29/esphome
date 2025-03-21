@@ -1,20 +1,21 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome import automation
+import esphome.codegen as cg
+from esphome.components import esp32
+import esphome.config_validation as cv
 from esphome.const import (
-    __version__,
+    CONF_ESP8266_DISABLE_SSL_SUPPORT,
     CONF_ID,
-    CONF_TIMEOUT,
     CONF_METHOD,
+    CONF_ON_ERROR,
+    CONF_TIMEOUT,
     CONF_TRIGGER_ID,
     CONF_URL,
-    CONF_ESP8266_DISABLE_SSL_SUPPORT,
+    __version__,
 )
-from esphome.core import Lambda, CORE
-from esphome.components import esp32
+from esphome.core import CORE, Lambda
 
 DEPENDENCIES = ["network"]
-AUTO_LOAD = ["json"]
+AUTO_LOAD = ["json", "watchdog"]
 
 http_request_ns = cg.esphome_ns.namespace("http_request")
 HttpRequestComponent = http_request_ns.class_("HttpRequestComponent", cg.Component)
@@ -40,6 +41,8 @@ CONF_VERIFY_SSL = "verify_ssl"
 CONF_FOLLOW_REDIRECTS = "follow_redirects"
 CONF_REDIRECT_LIMIT = "redirect_limit"
 CONF_WATCHDOG_TIMEOUT = "watchdog_timeout"
+CONF_BUFFER_SIZE_RX = "buffer_size_rx"
+CONF_BUFFER_SIZE_TX = "buffer_size_tx"
 
 CONF_MAX_RESPONSE_BUFFER_SIZE = "max_response_buffer_size"
 CONF_ON_RESPONSE = "on_response"
@@ -99,7 +102,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_FOLLOW_REDIRECTS, True): cv.boolean,
             cv.Optional(CONF_REDIRECT_LIMIT, 3): cv.int_,
             cv.Optional(
-                CONF_TIMEOUT, default="5s"
+                CONF_TIMEOUT, default="4.5s"
             ): cv.positive_time_period_milliseconds,
             cv.SplitDefault(CONF_ESP8266_DISABLE_SSL_SUPPORT, esp8266=False): cv.All(
                 cv.only_on_esp8266, cv.boolean
@@ -109,6 +112,12 @@ CONFIG_SCHEMA = cv.All(
                 cv.Any(cv.only_on_esp32, cv.only_on_rp2040),
                 cv.positive_not_null_time_period,
                 cv.positive_time_period_milliseconds,
+            ),
+            cv.SplitDefault(CONF_BUFFER_SIZE_RX, esp32_idf=512): cv.All(
+                cv.uint16_t, cv.only_with_esp_idf
+            ),
+            cv.SplitDefault(CONF_BUFFER_SIZE_TX, esp32_idf=512): cv.All(
+                cv.uint16_t, cv.only_with_esp_idf
             ),
         }
     ).extend(cv.COMPONENT_SCHEMA),
@@ -137,6 +146,9 @@ async def to_code(config):
 
     if CORE.is_esp32:
         if CORE.using_esp_idf:
+            cg.add(var.set_buffer_size_rx(config[CONF_BUFFER_SIZE_RX]))
+            cg.add(var.set_buffer_size_tx(config[CONF_BUFFER_SIZE_TX]))
+
             esp32.add_idf_sdkconfig_option(
                 "CONFIG_MBEDTLS_CERTIFICATE_BUNDLE",
                 config.get(CONF_VERIFY_SSL),
@@ -173,6 +185,13 @@ HTTP_REQUEST_ACTION_SCHEMA = cv.Schema(
         cv.Optional(CONF_CAPTURE_RESPONSE, default=False): cv.boolean,
         cv.Optional(CONF_ON_RESPONSE): automation.validate_automation(
             {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(HttpRequestResponseTrigger)}
+        ),
+        cv.Optional(CONF_ON_ERROR): automation.validate_automation(
+            {
+                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                    automation.Trigger.template()
+                )
+            }
         ),
         cv.Optional(CONF_MAX_RESPONSE_BUFFER_SIZE, default="1kB"): cv.validate_bytes,
     }
@@ -261,5 +280,9 @@ async def http_request_action_to_code(config, action_id, template_arg, args):
             ],
             conf,
         )
+    for conf in config.get(CONF_ON_ERROR, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
+        cg.add(var.register_error_trigger(trigger))
+        await automation.build_automation(trigger, [], conf)
 
     return var

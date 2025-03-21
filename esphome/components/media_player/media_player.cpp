@@ -37,6 +37,18 @@ const char *media_player_command_to_string(MediaPlayerCommand command) {
       return "UNMUTE";
     case MEDIA_PLAYER_COMMAND_TOGGLE:
       return "TOGGLE";
+    case MEDIA_PLAYER_COMMAND_VOLUME_UP:
+      return "VOLUME_UP";
+    case MEDIA_PLAYER_COMMAND_VOLUME_DOWN:
+      return "VOLUME_DOWN";
+    case MEDIA_PLAYER_COMMAND_ENQUEUE:
+      return "ENQUEUE";
+    case MEDIA_PLAYER_COMMAND_REPEAT_ONE:
+      return "REPEAT_ONE";
+    case MEDIA_PLAYER_COMMAND_REPEAT_OFF:
+      return "REPEAT_OFF";
+    case MEDIA_PLAYER_COMMAND_CLEAR_PLAYLIST:
+      return "CLEAR_PLAYLIST";
     default:
       return "UNKNOWN";
   }

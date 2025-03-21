@@ -184,11 +184,13 @@ void SprinklerValveOperator::set_controller(Sprinkler *controller) {
 
 void SprinklerValveOperator::set_valve(SprinklerValve *valve) {
   if (valve != nullptr) {
+    if (this->state_ != IDLE) {  // Only kill if not already idle
+      this->kill_();             // ensure everything is off before we let go!
+    }
     this->state_ = IDLE;      // reset state
     this->run_duration_ = 0;  // reset to ensure the valve isn't started without updating it
     this->start_millis_ = 0;  // reset because (new) valve has not been started yet
     this->stop_millis_ = 0;   // reset because (new) valve has not been started yet
-    this->kill_();            // ensure everything is off before we let go!
     this->valve_ = valve;     // finally, set the pointer to the new valve
   }
 }
@@ -419,7 +421,7 @@ void Sprinkler::add_valve(SprinklerControllerSwitch *valve_sw, SprinklerControll
   SprinklerValve *new_valve = &this->valve_[new_valve_number];
 
   new_valve->controller_switch = valve_sw;
-  new_valve->controller_switch->set_state_lambda([=]() -> optional<bool> {
+  new_valve->controller_switch->set_state_lambda([this, new_valve_number]() -> optional<bool> {
     if (this->valve_pump_switch(new_valve_number) != nullptr) {
       return this->valve_switch(new_valve_number)->state() && this->valve_pump_switch(new_valve_number)->state();
     }
@@ -445,7 +447,7 @@ void Sprinkler::add_controller(Sprinkler *other_controller) { this->other_contro
 
 void Sprinkler::set_controller_main_switch(SprinklerControllerSwitch *controller_switch) {
   this->controller_sw_ = controller_switch;
-  controller_switch->set_state_lambda([=]() -> optional<bool> {
+  controller_switch->set_state_lambda([this]() -> optional<bool> {
     for (size_t valve_number = 0; valve_number < this->number_of_valves(); valve_number++) {
       if (this->valve_[valve_number].controller_switch->state) {
         return true;
@@ -647,7 +649,7 @@ void Sprinkler::set_valve_run_duration(const optional<size_t> valve_number, cons
     return;
   }
   auto call = this->valve_[valve_number.value()].run_duration_number->make_call();
-  if (this->valve_[valve_number.value()].run_duration_number->traits.get_unit_of_measurement() == min_str) {
+  if (this->valve_[valve_number.value()].run_duration_number->traits.get_unit_of_measurement() == MIN_STR) {
     call.set_value(run_duration.value() / 60.0);
   } else {
     call.set_value(run_duration.value());
@@ -729,7 +731,7 @@ uint32_t Sprinkler::valve_run_duration(const size_t valve_number) {
     return 0;
   }
   if (this->valve_[valve_number].run_duration_number != nullptr) {
-    if (this->valve_[valve_number].run_duration_number->traits.get_unit_of_measurement() == min_str) {
+    if (this->valve_[valve_number].run_duration_number->traits.get_unit_of_measurement() == MIN_STR) {
       return static_cast<uint32_t>(roundf(this->valve_[valve_number].run_duration_number->state * 60));
     } else {
       return static_cast<uint32_t>(roundf(this->valve_[valve_number].run_duration_number->state));

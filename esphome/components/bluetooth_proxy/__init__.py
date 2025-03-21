@@ -1,8 +1,8 @@
-from esphome.components import esp32_ble_tracker, esp32_ble_client
-import esphome.config_validation as cv
 import esphome.codegen as cg
-from esphome.const import CONF_ACTIVE, CONF_ID
+from esphome.components import esp32_ble_client, esp32_ble_tracker
 from esphome.components.esp32 import add_idf_sdkconfig_option
+import esphome.config_validation as cv
+from esphome.const import CONF_ACTIVE, CONF_ID
 
 AUTO_LOAD = ["esp32_ble_client", "esp32_ble_tracker"]
 DEPENDENCIES = ["api", "esp32"]
@@ -34,13 +34,10 @@ def validate_connections(config):
             raise cv.Invalid(
                 "Connections can only be used if the proxy is set to active"
             )
-    else:
-        if config[CONF_ACTIVE]:
-            conf = config.copy()
-            conf[CONF_CONNECTIONS] = [
-                CONNECTION_SCHEMA({}) for _ in range(MAX_CONNECTIONS)
-            ]
-            return conf
+    elif config[CONF_ACTIVE]:
+        conf = config.copy()
+        conf[CONF_CONNECTIONS] = [CONNECTION_SCHEMA({}) for _ in range(MAX_CONNECTIONS)]
+        return conf
     return config
 
 

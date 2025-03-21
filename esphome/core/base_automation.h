@@ -2,6 +2,7 @@
 
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
+#include "esphome/core/hal.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/preferences.h"
 
@@ -278,10 +279,11 @@ template<typename... Ts> class RepeatAction : public Action<Ts...> {
     this->then_.add_actions(actions);
     this->then_.add_action(new LambdaAction<uint32_t, Ts...>([this](uint32_t iteration, Ts... x) {
       iteration++;
-      if (iteration >= this->count_.value(x...))
+      if (iteration >= this->count_.value(x...)) {
         this->play_next_tuple_(this->var_);
-      else
+      } else {
         this->then_.play(iteration, x...);
+      }
     }));
   }
 
