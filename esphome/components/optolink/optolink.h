@@ -22,7 +22,7 @@ class Optolink : public esphome::Component, public Print {
   uint32_t timestamp_send_ = 0;
 
   static const uint32_t COMMUNICATION_CHECK_WINDOW = 10000;
-  static const uint32_t COMMUNICATION_SUSPENSION_DURATION = 10000;
+  static const uint32_t COMMUNICATION_SUSPENSION_DURATION = 60000;
   static const uint32_t MAX_RESPONSE_DELAY = 2000;
 
  public:
