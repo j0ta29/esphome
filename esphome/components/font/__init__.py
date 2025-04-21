@@ -7,7 +7,15 @@ from pathlib import Path
 import re
 
 import esphome_glyphsets as glyphsets
-from freetype import Face, ft_pixel_mode_grays, ft_pixel_mode_mono
+
+# pylint: disable=no-name-in-module
+from freetype import (
+    FT_LOAD_NO_BITMAP,
+    FT_LOAD_RENDER,
+    FT_LOAD_TARGET_MONO,
+    Face,
+    ft_pixel_mode_mono,
+)
 import requests
 
 from esphome import external_files
@@ -204,7 +212,7 @@ def validate_font_config(config):
             if font.get_char_index(x) != 0
         ]
 
-    if font.has_fixed_sizes:
+    if not font.is_scalable:
         sizes = [pt_to_px(x.size) for x in font.available_sizes]
         if not sizes:
             raise cv.Invalid(
@@ -501,17 +509,23 @@ async def to_code(config):
     glyph_args = {}
     data = []
     bpp = config[CONF_BPP]
-    mode = ft_pixel_mode_grays
     scale = 256 // (1 << bpp)
     size = config[CONF_SIZE]
     # create the data array for all glyphs
     for codepoint in codepoints:
         font = point_font_map[codepoint]
-        format = font.get_format().decode("utf-8")
-        if format != "PCF":
+        if not font.is_scalable:
+            sizes = [pt_to_px(x.size) for x in font.available_sizes]
+            if size in sizes:
+                font.select_size(sizes.index(size))
+        else:
             font.set_pixel_sizes(size, 0)
-        font.load_char(codepoint)
-        font.glyph.render(mode)
+        flags = FT_LOAD_RENDER
+        if bpp != 1:
+            flags |= FT_LOAD_NO_BITMAP
+        else:
+            flags |= FT_LOAD_TARGET_MONO
+        font.load_char(codepoint, flags)
         width = font.glyph.bitmap.width
         height = font.glyph.bitmap.rows
         buffer = font.glyph.bitmap.buffer
@@ -535,7 +549,7 @@ async def to_code(config):
                     pos += 1
         ascender = pt_to_px(font.size.ascender)
         if ascender == 0:
-            if font.has_fixed_sizes:
+            if not font.is_scalable:
                 ascender = size
             else:
                 _LOGGER.error(
@@ -585,7 +599,7 @@ async def to_code(config):
     font_height = pt_to_px(base_font.size.height)
     ascender = pt_to_px(base_font.size.ascender)
     if font_height == 0:
-        if base_font.has_fixed_sizes:
+        if not base_font.is_scalable:
             font_height = size
             ascender = font_height
         else:
