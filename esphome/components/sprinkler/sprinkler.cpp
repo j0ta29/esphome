@@ -81,7 +81,7 @@ void SprinklerControllerNumber::setup() {
   if (!this->restore_value_) {
     value = this->initial_value_;
   } else {
-    this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+    this->pref_ = global_preferences->make_preference<float>(this->get_preference_hash());
     if (!this->pref_.load(&value)) {
       if (!std::isnan(this->initial_value_)) {
         value = this->initial_value_;
@@ -650,7 +650,7 @@ void Sprinkler::set_valve_run_duration(const optional<size_t> valve_number, cons
     return;
   }
   auto call = this->valve_[valve_number.value()].run_duration_number->make_call();
-  if (this->valve_[valve_number.value()].run_duration_number->traits.get_unit_of_measurement() == MIN_STR) {
+  if (this->valve_[valve_number.value()].run_duration_number->traits.get_unit_of_measurement_ref() == MIN_STR) {
     call.set_value(run_duration.value() / 60.0);
   } else {
     call.set_value(run_duration.value());
@@ -732,7 +732,7 @@ uint32_t Sprinkler::valve_run_duration(const size_t valve_number) {
     return 0;
   }
   if (this->valve_[valve_number].run_duration_number != nullptr) {
-    if (this->valve_[valve_number].run_duration_number->traits.get_unit_of_measurement() == MIN_STR) {
+    if (this->valve_[valve_number].run_duration_number->traits.get_unit_of_measurement_ref() == MIN_STR) {
       return static_cast<uint32_t>(roundf(this->valve_[valve_number].run_duration_number->state * 60));
     } else {
       return static_cast<uint32_t>(roundf(this->valve_[valve_number].run_duration_number->state));
@@ -1712,15 +1712,18 @@ void Sprinkler::dump_config() {
     if (this->valve_overlap_) {
       ESP_LOGCONFIG(TAG, "  Valve Overlap: %" PRIu32 " seconds", this->switching_delay_.value_or(0));
     } else {
-      ESP_LOGCONFIG(TAG, "  Valve Open Delay: %" PRIu32 " seconds", this->switching_delay_.value_or(0));
-      ESP_LOGCONFIG(TAG, "  Pump Switch Off During Valve Open Delay: %s",
-                    YESNO(this->pump_switch_off_during_valve_open_delay_));
+      ESP_LOGCONFIG(TAG,
+                    "  Valve Open Delay: %" PRIu32 " seconds\n"
+                    "  Pump Switch Off During Valve Open Delay: %s",
+                    this->switching_delay_.value_or(0), YESNO(this->pump_switch_off_during_valve_open_delay_));
     }
   }
   for (size_t valve_number = 0; valve_number < this->number_of_valves(); valve_number++) {
-    ESP_LOGCONFIG(TAG, "  Valve %zu:", valve_number);
-    ESP_LOGCONFIG(TAG, "    Name: %s", this->valve_name(valve_number));
-    ESP_LOGCONFIG(TAG, "    Run Duration: %" PRIu32 " seconds", this->valve_run_duration(valve_number));
+    ESP_LOGCONFIG(TAG,
+                  "  Valve %zu:\n"
+                  "    Name: %s\n"
+                  "    Run Duration: %" PRIu32 " seconds",
+                  valve_number, this->valve_name(valve_number), this->valve_run_duration(valve_number));
     if (this->valve_[valve_number].valve_switch.pulse_duration()) {
       ESP_LOGCONFIG(TAG, "    Pulse Duration: %" PRIu32 " milliseconds",
                     this->valve_[valve_number].valve_switch.pulse_duration());

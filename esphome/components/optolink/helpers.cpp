@@ -137,8 +137,8 @@ bool encode_datetime(const std::string &value, uint8_t *buffer) {
   buffer[6] = dec_to_bcd(min);
   buffer[7] = dec_to_bcd(sec);
 
-  ESP_LOGD(TAG, "Encoded buffer values: %02X %02X %02X %02X %02X %02X %02X %02X",
-           buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]);
+  ESP_LOGD(TAG, "Encoded buffer values: %02X %02X %02X %02X %02X %02X %02X %02X", buffer[0], buffer[1], buffer[2],
+           buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]);
   return true;
 }
 

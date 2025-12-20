@@ -19,12 +19,13 @@ constexpr int LOG_LEVEL_TO_SYSLOG_SEVERITY[] = {
     7   // VERY_VERBOSE
 };
 
-void Syslog::setup() {
-  logger::global_logger->add_on_log_callback(
-      [this](int level, const char *tag, const char *message) { this->log_(level, tag, message); });
+void Syslog::setup() { logger::global_logger->add_log_listener(this); }
+
+void Syslog::on_log(uint8_t level, const char *tag, const char *message, size_t message_len) {
+  this->log_(level, tag, message, message_len);
 }
 
-void Syslog::log_(const int level, const char *tag, const char *message) const {
+void Syslog::log_(const int level, const char *tag, const char *message, size_t message_len) const {
   if (level > this->log_level_)
     return;
   // Syslog PRI calculation: facility * 8 + severity
@@ -33,8 +34,8 @@ void Syslog::log_(const int level, const char *tag, const char *message) const {
     severity = LOG_LEVEL_TO_SYSLOG_SEVERITY[level];
   }
   int pri = this->facility_ * 8 + severity;
-  auto timestamp = this->time_->now().strftime("%b %d %H:%M:%S");
-  unsigned len = strlen(message);
+  auto timestamp = this->time_->now().strftime("%b %e %H:%M:%S");
+  size_t len = message_len;
   // remove color formatting
   if (this->strip_ && message[0] == 0x1B && len > 11) {
     message += 7;

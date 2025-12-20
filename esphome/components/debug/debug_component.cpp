@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include "esphome/core/application.h"
-#include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
 #include "esphome/core/version.h"
 #include <cinttypes>
 #include <climits>
@@ -15,10 +15,6 @@ namespace debug {
 static const char *const TAG = "debug";
 
 void DebugComponent::dump_config() {
-#ifndef ESPHOME_LOG_HAS_DEBUG
-  return;  // Can't log below if debug logging is disabled
-#endif
-
   ESP_LOGCONFIG(TAG, "Debug component:");
 #ifdef USE_TEXT_SENSOR
   LOG_TEXT_SENSOR("  ", "Device info", this->device_info_);
@@ -53,9 +49,9 @@ void DebugComponent::dump_config() {
   }
 #endif  // USE_TEXT_SENSOR
 
-#ifdef USE_ESP32
-  this->log_partition_info_();  // Log partition information for ESP32
-#endif                          // USE_ESP32
+#if defined(USE_ESP32) || defined(USE_ZEPHYR)
+  this->log_partition_info_();  // Log partition information
+#endif
 }
 
 void DebugComponent::loop() {
